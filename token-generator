@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+"""Generate a token for a given api_key and shared_secret (As obtained from RTM)"""
+
+import rtm
+import argparse
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("api_key")
+	parser.add_argument("shared_secret")
+	args = parser.parse_args()
+
+	rtm = rtm.createRTM(args.api_key, args.shared_secret)
