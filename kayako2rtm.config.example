@@ -1,0 +1,33 @@
+[RTM]
+# RTM authentication credentials
+# You can use token-generator to generate a valid token once
+# you've acquired your api_key and shared secret from RTM
+key = api_key
+secret = shared_secret
+token = token
+
+# List id to add/remove items to/from
+# You can find the listid for a specific list by checking the iCal/Atom feed URL's
+# in the RTM webinterface, they both follow the /username/listid/ format. For example:
+# webcal://www.rememberthemilk.com/icalendar/zonii/000000/events/?tok=secretgibberish
+#                                                    ^---- That's the listid
+listid = 000000
+
+# The main tag to tag tasks with, used as filter to identify tasks to synchronise
+maintag = kayako2rtm
+# Extra tags you wish to have applied to tasks
+extratags = .work
+
+[Kayako]
+host = hostname or IP address
+port = 3306
+user = username
+passwd = password
+db = database name
+
+# The staff id of whichever users' tickets you want to sync to RTM
+staffid = 0
+
+[Logging]
+# One of DEBUG, INFO, WARNING, ERROR or CRITICAL
+level = INFO

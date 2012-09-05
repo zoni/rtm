@@ -1,0 +1,146 @@
+#!/usr/bin/env python2
+
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+"""Synchronize assigned tickets from Kayako 4.x to RTM
+
+Utilizes raw SQL queries rather than Kayako's API since the API is broken in the
+Kayako version used at the company I work at currently.
+
+Yes this is ugly procedural code. The intention was to write-once-and-forget since
+Kayako will only be used for another year there, tops :)
+"""
+
+# Setup logging before importing any other modules to ensure they don't configure logging before we do
+# This also means we need to run through the configparser setup
+import logging
+import ConfigParser
+import sys
+if __name__ == '__main__':
+	if len(sys.argv) != 2 or sys.argv[1] in ("-h", "--help"):
+		print "Usage: kayako2rtm <configfile>"
+		sys.exit(1)
+	config = ConfigParser.ConfigParser()
+	fh = open(sys.argv[1], 'r')
+	config.readfp(fh)
+	logging.basicConfig(level=getattr(logging, config.get("Logging", "level").upper(), None))
+else:
+	logging.basicConfig()
+
+import MySQLdb, MySQLdb.cursors
+import rtm
+import re
+from time import sleep
+from datetime import datetime
+
+ticketregex = re.compile("[!#]?([A-Z]{3}-[0-9]{3}-[0-9]{5})")
+
+if __name__ == '__main__':
+	if len(sys.argv) != 2 or sys.argv[1] in ("-h", "--help"):
+		print "Usage: kayako2rtm <configfile>"
+		sys.exit(1)
+	config = ConfigParser.ConfigParser()
+	fh = open(sys.argv[1], 'r')
+	config.readfp(fh)
+
+	logging.info("Connecting to MySQL server")
+	kayakodb = MySQLdb.connect(host=config.get("Kayako", "host"), port=config.getint("Kayako", "port"), user=config.get("Kayako", "user"), passwd=config.get("Kayako", "passwd"), db=config.get("Kayako", "db"), cursorclass=MySQLdb.cursors.DictCursor)
+	cursor = kayakodb.cursor()
+	logging.info("Getting an RTM API object")
+	milk = rtm.createRTM(config.get("RTM", "key"), config.get("RTM", "secret"), config.get("RTM", "token"))
+	logging.info("Getting an RTM timeline object")
+	timeline = milk.timelines.create().timeline
+	logging.info("Fetching list of assigned tickets from database")
+	cursor.execute("""
+	               SELECT ownerstaffid, duetime, t.ticketstatusid, markasresolved, ticketmaskid, subject, s.title
+	               FROM swtickets as t
+	               INNER JOIN swticketstatus as s
+	               ON t.ticketstatusid = s.ticketstatusid
+	               WHERE ownerstaffid = %s;""",
+	               (config.get("Kayako", "staffid"),))
+	tickets = {}
+	logging.debug("Query result:")
+	for row in cursor.fetchall():
+		logging.debug(repr(row))
+		tickets[ row['ticketmaskid'] ] = row
+
+	seen = []
+	tasklist = milk.tasks.getList(filter="tag:{0} and status:incomplete".format(config.get("RTM", "maintag")))
+	if hasattr(tasklist.tasks, "list") and hasattr(tasklist.tasks.list, "__getitem__"):
+		#if tasklist.tasks.list is not None:
+		for taskseries in tasklist.tasks.list:
+			# Workaround for taskseries.taskseries not being iterable when only 1 task was returned
+			if not hasattr(taskseries.taskseries, "__iter__"):
+				taskseries.taskseries = [taskseries.taskseries]
+			for task in taskseries.taskseries:
+				r = ticketregex.search(task.name)
+				if r is None:
+					logging.warning('No regex match found while parsing task "{0}"'.format(task.name))
+				else:
+					ticketid = r.groups()[0]
+					if task.task.completed:
+						logging.info('Skipping completed task {0}'.format(ticketid))
+					else:
+						# Compare due times
+						duestr = datetime.fromtimestamp(tickets[ticketid]['duetime']).isoformat()
+						# RTM places a 'Z' behind the time string, which .isoformat() doesn't
+						if task.task.due[-1] == "Z": duestr += "Z"
+						if task.task.due != duestr:
+							logging.info('Due time for ticket {0} changed, updating'.format(ticketid))
+							milk.tasks.setDueDate(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id, due=duestr, has_due_time="1")
+						else:
+							logging.info('Due time for ticket {0} unchanged'.format(ticketid))
+
+						# Compare tags
+						tags = [config.get("RTM", "maintag"), tickets[ticketid]['title'].lower()] + config.get("RTM", "extratags").split(",")
+						if sorted(task.tags.tag) == sorted(tags):
+							logging.info('Tags for ticket {0} up to date'.format(ticketid))
+						else:
+							logging.info('Tags for ticket {0} out of date, updating'.format(ticketid))
+							milk.tasks.setTags(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id, tags=tags)
+
+						# Check if resolved
+						if ticketid not in tickets:
+							logging.info('Ticket "{0}" not in currently assigned tickets, completing it'.format(ticketid))
+							milk.tasks.complete(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id)
+						else:
+							if tickets[ticketid]['markasresolved']:
+								logging.info('Ticket "{0}" has a resolved status type, completing'.format(ticketid))
+								milk.tasks.complete(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id)
+					seen.append(ticketid)
+	else:
+		logging.info("No current tasks found with tag:{0}".format(config.get("RTM", "maintag")))
+	logging.debug('Seen contains: {0}'.format(repr(seen)))
+
+	for id, ticket in tickets.iteritems():
+		if id not in seen:
+			logging.info('Ticket {0} not seen, adding'.format(id))
+			# Add using parse=0 to ensure the subject isn't parsed
+			task = milk.tasks.add(timeline=timeline, list_id=config.getint("RTM", "listid"), name="[{0}] {1}".format(ticket['ticketmaskid'], ticket['subject']), parse=0)
+			# Then add the tags and what-not with separate calls (There is no API method in RTM's API to do this right away with the .add() method)
+			tags = [config.get("RTM", "maintag"), tickets[ticketid]['title'].lower()] + config.get("RTM", "extratags").split(",")
+			milk.tasks.setTags(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.list.taskseries.id, task_id=task.list.taskseries.task.id, tags=tags)
+			if ticket['duetime'] > 0:
+				duestr = datetime.fromtimestamp(ticket['duetime']).isoformat()
+				logging.info('Ticket {0} set due at {1}'.format(id, duestr))
+				milk.tasks.setDueDate(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.list.taskseries.id, task_id=task.list.taskseries.task.id, due=duestr, has_due_time="1")
+			if ticket['markasresolved']:
+				logging.info('Ticket {0} has a resolved status type, completing'.format(id))
+				milk.tasks.complete(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.list.taskseries.id, task_id=task.list.taskseries.task.id)
+			sleep(5)
+		else:
+			logging.info('Ticket {0} already in RTM, skipping'.format(id))
+
+
