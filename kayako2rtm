@@ -128,7 +128,13 @@ if __name__ == '__main__':
 		if id not in seen:
 			logging.info('Ticket {0} not seen, adding'.format(id))
 			# Add using parse=0 to ensure the subject isn't parsed
-			task = milk.tasks.add(timeline=timeline, list_id=config.getint("RTM", "listid"), name="[{0}] {1}".format(ticket['ticketmaskid'], ticket['subject']), parse=0)
+			name = "[{0}] {1}".format(ticket['ticketmaskid'], ticket['subject'])
+			try:
+				task = milk.tasks.add(timeline=timeline, list_id=config.getint("RTM", "listid"), name=name, parse=0)
+			except UnicodeDecodeError:
+				# pyrtm uses urllib.quote which doesn't handle non-ascii characters
+				task = milk.tasks.add(timeline=timeline, list_id=config.getint("RTM", "listid"), name=name.decode('utf-8').encode('ascii', 'ignore'), parse=0)
+				logging.warning('Non-ASCII characters removed from task name')
 			# Then add the tags and what-not with separate calls (There is no API method in RTM's API to do this right away with the .add() method)
 			tags = [config.get("RTM", "maintag"), tickets[ticketid]['title'].lower()] + config.get("RTM", "extratags").split(",")
 			milk.tasks.setTags(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.list.taskseries.id, task_id=task.list.taskseries.task.id, tags=tags)
