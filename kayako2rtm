@@ -64,7 +64,7 @@ if __name__ == '__main__':
 	timeline = milk.timelines.create().timeline
 	logging.info("Fetching list of assigned tickets from database")
 	cursor.execute("""
-	               SELECT ownerstaffid, duetime, t.ticketstatusid, markasresolved, ticketmaskid, subject, s.title
+	               SELECT ticketid, ownerstaffid, duetime, t.ticketstatusid, markasresolved, ticketmaskid, subject, s.title
 	               FROM swtickets as t
 	               INNER JOIN swticketstatus as s
 	               ON t.ticketstatusid = s.ticketstatusid
@@ -143,7 +143,9 @@ if __name__ == '__main__':
 				logging.warning('Non-ASCII characters removed from task name')
 			# Then add the tags and what-not with separate calls (There is no API method in RTM's API to do this right away with the .add() method)
 			tags = [config.get("RTM", "maintag"), tickets[ticketid]['title'].lower()] + config.get("RTM", "extratags").split(",")
+			url = config.get("Kayako", "directurl") + str(ticket['ticketid'])
 			milk.tasks.setTags(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.list.taskseries.id, task_id=task.list.taskseries.task.id, tags=tags)
+			milk.tasks.setURL(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.list.taskseries.id, task_id=task.list.taskseries.task.id, url=url)
 			if ticket['duetime'] > 0:
 				duestr = datetime.fromtimestamp(ticket['duetime']).isoformat()
 				logging.info('Ticket {0} set due at {1}'.format(id, duestr))

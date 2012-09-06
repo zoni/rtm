@@ -28,6 +28,10 @@ db = database name
 # The staff id of whichever users' tickets you want to sync to RTM
 staffid = 0
 
+# Link for staff user to jump directly to ticket view (Excluding the very last set of digits,
+# which is the ticket ID
+directurl = https://domain.tld/staff/index.php?/Tickets/Ticket/View/
+
 [Logging]
 # One of DEBUG, INFO, WARNING, ERROR or CRITICAL
 level = INFO
