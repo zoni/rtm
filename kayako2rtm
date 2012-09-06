@@ -77,7 +77,7 @@ if __name__ == '__main__':
 		tickets[ row['ticketmaskid'] ] = row
 
 	seen = []
-	tasklist = milk.tasks.getList(filter="tag:{0} and status:incomplete".format(config.get("RTM", "maintag")))
+	tasklist = milk.tasks.getList(filter="tag:{0}".format(config.get("RTM", "maintag")))
 	if hasattr(tasklist.tasks, "list") and hasattr(tasklist.tasks.list, "__getitem__"):
 		#if tasklist.tasks.list is not None:
 		for taskseries in tasklist.tasks.list:
