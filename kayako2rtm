@@ -91,7 +91,13 @@ if __name__ == '__main__':
 				else:
 					ticketid = r.groups()[0]
 					if task.task.completed:
-						logging.info('Skipping completed task {0}'.format(ticketid))
+						# Compare tags
+						tags = [config.get("RTM", "maintag"), tickets[ticketid]['title'].lower()] + config.get("RTM", "extratags").split(",")
+						if sorted(task.tags.tag) == sorted(tags):
+							logging.info('Tags for ticket {0} up to date'.format(ticketid))
+						else:
+							logging.info('Tags for ticket {0} out of date, updating'.format(ticketid))
+							milk.tasks.setTags(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id, tags=tags)
 					else:
 						# Compare due times
 						duestr = datetime.fromtimestamp(tickets[ticketid]['duetime']).isoformat()
