@@ -115,14 +115,21 @@ if __name__ == '__main__':
 								seen[ticketid] = True
 							else:
 								# Compare due times
-								duestr = datetime.fromtimestamp(tickets[ticketid]['duetime']).isoformat()
+								due = None if tickets[ticketid]['duetime'] == 0 else datetime.fromtimestamp(tickets[ticketid]['duetime']).isoformat()
 								# RTM places a 'Z' behind the time string, which .isoformat() doesn't
-								if task.task.due[-1] == "Z": duestr += "Z"
-								if task.task.due != duestr:
-									logging.info('Due time for ticket {0} changed, updating'.format(ticketid))
-									milk.tasks.setDueDate(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id, due=duestr, has_due_time="1")
+								if not due:
+									if task.task.due:
+										logging.info('Ticket {0} has no due time, removing duetime from task'.format(ticketid))
+										milk.tasks.setDueDate(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id)
+									else:
+										logging.info('Due time for ticket {0} unchanged, no duetime on ticket and task'.format(ticketid))
 								else:
-									logging.info('Due time for ticket {0} unchanged'.format(ticketid))
+									if task.task.due[-1] == "Z": due += "Z"
+									if task.task.due != due:
+										logging.info('Due time for ticket {0} changed, updating'.format(ticketid))
+										milk.tasks.setDueDate(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id, due=due, has_due_time="1")
+									else:
+										logging.info('Due time for ticket {0} unchanged'.format(ticketid))
 								seen[ticketid] = False
 					else:
 						seen[ticketid] = True
