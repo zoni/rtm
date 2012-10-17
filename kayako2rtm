@@ -77,7 +77,11 @@ if __name__ == '__main__':
 		logging.debug(repr(row))
 		tickets[ row['ticketmaskid'] ] = row
 
-	seen = {} # {ticketid: completed, ticketid, completed, ... }
+	seen = {} # {ticketid: (completed,date), ticketid: (completed,date), ... }
+	def add2seen(task, ticketid, resolved):
+		if ticketid not in seen or task.task.added > seen[ticketid][1]:
+			seen[ticketid] = (resolved,task.task.added) 
+
 	tasklist = milk.tasks.getList(filter="tag:{0}".format(config.get("RTM", "maintag")))
 	if hasattr(tasklist.tasks, "list") and hasattr(tasklist.tasks.list, "__getitem__"):
 		#if tasklist.tasks.list is not None:
@@ -97,7 +101,7 @@ if __name__ == '__main__':
 						if ticketid not in tickets:
 							logging.info('Ticket "{0}" not in currently assigned tickets, completing it'.format(ticketid))
 							milk.tasks.complete(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id)
-							seen[ticketid] = True
+							add2seen(task, ticketid, True)
 						else:
 							# Update tags if needed
 							status = tickets[ticketid]['title'].lower().replace(' ', '_')
@@ -112,7 +116,7 @@ if __name__ == '__main__':
 							if tickets[ticketid]['markasresolved']:
 								logging.info('Ticket "{0}" has a resolved status type, completing'.format(ticketid))
 								milk.tasks.complete(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id)
-								seen[ticketid] = True
+								add2seen(task, ticketid, True)
 							else:
 								# Compare due times
 								due = None if tickets[ticketid]['duetime'] == 0 else datetime.fromtimestamp(tickets[ticketid]['duetime']).isoformat()
@@ -130,16 +134,16 @@ if __name__ == '__main__':
 										milk.tasks.setDueDate(timeline=timeline, list_id=config.getint("RTM", "listid"), taskseries_id=task.id, task_id=task.task.id, due=due, has_due_time="1")
 									else:
 										logging.info('Due time for ticket {0} unchanged'.format(ticketid))
-								seen[ticketid] = False
+								add2seen(task, ticketid, False)
 					else:
-						seen[ticketid] = True
+						add2seen(task, ticketid, True)
 	else:
 		logging.info("No current tasks found with tag:{0}".format(config.get("RTM", "maintag")))
 	logging.debug('Seen contains: {0}'.format(repr(seen)))
 
 	for id, ticket in tickets.iteritems():
 		# The or (...) handles cases where a ticket has been reopened
-		if id not in seen or (seen[id] == True and ticket['markasresolved'] == False):
+		if id not in seen or (seen[id][0] == True and ticket['markasresolved'] == False):
 			logging.info('Ticket {0} not seen or reopened, adding'.format(id))
 			# Add using parse=0 to ensure the subject isn't parsed
 			name = "[{0}] {1}".format(ticket['ticketmaskid'], ticket['subject'])
