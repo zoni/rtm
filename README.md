@@ -11,6 +11,11 @@ Generates a token for a given api\_key and shared secret
 
 Connects to a [Kayako](http://www.kayako.com/) 4.x database, synchronizing tickets assigned to the specified person to an RTM tasklist
 
+### gh2rtm
+
+Synchronizes GitHub issues and pull-requests to RTM.
+
+
 Dependencies
 ------------
 
