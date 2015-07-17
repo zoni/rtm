@@ -7,19 +7,6 @@ Various scripts used to feed extra data into RTM tasklist
 
 Generates a token for a given api\_key and shared secret
 
-### kayako2rtm
-
-Connects to a [Kayako](http://www.kayako.com/) 4.x database, synchronizing tickets assigned to the specified person to an RTM tasklist
-
 ### gh2rtm
 
 Synchronizes GitHub issues and pull-requests to RTM.
-
-
-Dependencies
-------------
-
-- pyrtm
-- python 2.6+
-- MySQLdb (kayako2rtm only)
-
