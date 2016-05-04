@@ -135,7 +135,7 @@ def get_tasks(log, rtm, list, tags):
 
     if not (hasattr(tasklist.tasks, "list") and hasattr(tasklist.tasks.list, "__getitem__")):
         log.debug("RTM tasklist empty")
-        return
+        return {}
 
     for taskseries in tasklist.tasks.list:
         # Workaround for taskseries.taskseries not being iterable when only 1 task was returned
