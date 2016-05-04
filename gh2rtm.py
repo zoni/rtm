@@ -108,7 +108,7 @@ def get_github_issues(gh, queries):
         results += items
 
     for issue in results:
-        title = "{repository[name]}#{number}: {title}".format(**issue)
+        title = "{repository[name]}#{number}: {title}".format(**issue).strip()
         log.debug("gh.parse_issue", title=title)
         if title not in issues:
             issues[title] = issue
