@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import logging
 import structlog
 import sys
@@ -32,6 +33,8 @@ def main(args):
     tasks = get_tasks(log, rtm, list=config['rtm']['list'], tags=tags)
     message_set = set(messages.keys())
     task_set = set(tasks.keys())
+    now = datetime.datetime.now()
+    tomorrow = now + datetime.timedelta(days=1)
 
     not_in_rtm = message_set.difference(task_set)
     not_in_imap = task_set.difference(message_set)
@@ -54,6 +57,17 @@ def main(args):
             task_id=task.list.taskseries.task.id,
             tags=tags
         )
+        log.debug("Setting due date", task=title)
+        rtm.tasks.setDueDate(
+            timeline=timeline,
+            list_id=config['rtm']['list'],
+            taskseries_id=task.list.taskseries.id,
+            task_id=task.list.taskseries.task.id,
+            due=tomorrow.isoformat(),
+            has_due_time=True,
+            parse=False,
+        )
+
 
     for title in not_in_imap:
         log.info("Marking task completed", task=title)
