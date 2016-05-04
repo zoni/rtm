@@ -10,8 +10,6 @@ from imapclient import IMAPClient
 from rtm import createRTM
 from structlog import get_logger
 
-TASKLIST_FILTER = "tag:imap2rtm"
-
 
 def main(args):
     init_logger(level=args.log_level.upper())
@@ -20,6 +18,7 @@ def main(args):
 
     log = get_logger()
     rtm = createRTM(config['rtm']['api_key'], config['rtm']['shared_secret'], config['rtm']['token'])
+    tags = ["imap2rtm"] + config["rtm"].get('extra_tags', [])
     imap = new_imap_connection(
         log=log,
         host=config['imap']['host'],
@@ -30,7 +29,7 @@ def main(args):
     )
 
     messages = get_messages(log, imap, config['imap']['folder'])
-    tasks = get_tasks(log, rtm, list=config['rtm']['list'])
+    tasks = get_tasks(log, rtm, list=config['rtm']['list'], tags=tags)
     message_set = set(messages.keys())
     task_set = set(tasks.keys())
 
@@ -38,7 +37,6 @@ def main(args):
     not_in_imap = task_set.difference(message_set)
 
     timeline = rtm.timelines.create().timeline
-    tags = ["imap2rtm"] + config["rtm"].get('extra_tags', [])
 
     for title in not_in_rtm:
         log.info("Adding task", title=title)
@@ -126,10 +124,14 @@ def get_messages(log, connection, folder):
     return result
 
 
-def get_tasks(log, rtm, list):
+def get_tasks(log, rtm, list, tags):
     log.debug("Getting RTM tasks")
     tasks = {}
-    tasklist = rtm.tasks.getList(filter=TASKLIST_FILTER)
+    if len(tags) == 0:
+        filter = "listid:%s" % list
+    else:
+        filter = "listid:%s and tag:%s" % (list, " and tag:".join(tags))
+    tasklist = rtm.tasks.getList(filter=filter)
 
     if not (hasattr(tasklist.tasks, "list") and hasattr(tasklist.tasks.list, "__getitem__")):
         log.debug("RTM tasklist empty")
