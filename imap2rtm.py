@@ -134,6 +134,10 @@ def get_messages(log, connection, folder):
         except AttributeError:
             log.warning("Skipped message because of missing subject header", message=message)
             continue
+        if subject.lower().startswith("re: "):
+            subject = subject[4:]
+        if subject.lower().startswith("fwd: "):
+            subject = subject[5:]
         result[subject] = message
     return result
 
