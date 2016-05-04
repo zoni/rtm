@@ -24,6 +24,7 @@ def main(args):
         log=log,
         host=config['imap']['host'],
         port=config['imap'].get('port', 143),
+        legacy_ssl=config['imap'].get('legacy_ssl', False),
         username=config['imap']['username'],
         password=config['imap']['password'],
     )
@@ -95,11 +96,12 @@ def init_logger(level):
     )
 
 
-def new_imap_connection(log, host, username, password, port=143):
-    log.debug("Establishing IMAP connection", host=host, username=username)
-    c = IMAPClient(host, port=port, use_uid=True, ssl=False)
-    log.debug("Upgrading to TLS")
-    c.starttls()
+def new_imap_connection(log, host, username, password, port=143, legacy_ssl=False):
+    log.debug("Establishing IMAP connection", host=host, port=port, ssl=legacy_ssl, username=username)
+    c = IMAPClient(host, port=port, use_uid=True, ssl=legacy_ssl)
+    if not legacy_ssl:
+        log.debug("Upgrading to TLS")
+        c.starttls()
     log.debug("Logging in")
     c.login(username, password)
     log.debug("Successfully connected to IMAP server")
