@@ -34,7 +34,7 @@ def main(args):
     message_set = set(messages.keys())
     task_set = set(tasks.keys())
     now = datetime.datetime.now()
-    tomorrow = now + datetime.timedelta(days=1)
+    due_at = now + datetime.timedelta(days=args.days)
 
     not_in_rtm = message_set.difference(task_set)
     not_in_imap = task_set.difference(message_set)
@@ -63,7 +63,7 @@ def main(args):
             list_id=config['rtm']['list'],
             taskseries_id=task.list.taskseries.id,
             task_id=task.list.taskseries.task.id,
-            due=tomorrow.isoformat(),
+            due=due_at.isoformat(),
             has_due_time=True,
             parse=False,
         )
@@ -172,5 +172,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log-level", help="specify log level", default="info")
     parser.add_argument("-c", "--config", help="specify configuration file", default="config.yml")
+    parser.add_argument("-d", "--days", type=int, help="make new mails due in this many days", default=1)
     args = parser.parse_args()
     main(args)
